@@ -71,7 +71,7 @@ func clientConn(conn net.Conn) {
 				}
 			case string(common.ClientConnNodeData):
 				common.ToStruct(&clientId, m.Data)
-				if ClientDataStreamMap.Get(clientId)!=nil{
+				if ClientDataStreamMap.Get(clientId) != nil {
 					ClientDataStreamMap.delete(clientId)
 				}
 				session, err := smux.Server(conn, nil)
@@ -164,7 +164,7 @@ func SessionListen(session *smux.Session, id int64) {
 func clientConnTask(conn net.Conn, clientId int64) {
 	defer func() {
 		conn.Close()
-		delete(ClientControlConnMap,clientId)
+		delete(ClientControlConnMap, clientId)
 	}()
 	for {
 		msg, err := bufio.NewReader(conn).ReadString('\n')
@@ -182,7 +182,7 @@ func clientConnTask(conn net.Conn, clientId int64) {
 					common.ToStruct(&nc, m.Data)
 				case string(common.Heartbeat):
 					//接收到心跳正常.
-					common.SendStructType(conn,common.Heartbeat)
+					common.SendStructType(conn, common.Heartbeat)
 				default:
 					log.Println(msg)
 				}
@@ -213,7 +213,7 @@ func Conn() {
 			authentication()
 			doTask()
 		}
-		time.Sleep(time.Second*10)
+		time.Sleep(time.Second * 10)
 		ri++
 		log.Printf("连接已断开..重试第" + strconv.Itoa(ri) + "次")
 	}
@@ -241,17 +241,17 @@ func doTask() {
 					//node连接会返回端口
 					if m.Data != nil && listen == nil {
 						rs := struct {
-							Node   common.Node   `json:"node"`
-							Versions string `json:"versions"`
+							Node     common.Node `json:"node"`
+							Versions string      `json:"versions"`
 						}{}
 						common.ToStruct(&rs, m.Data)
-						if rs.Versions!=common.Versions {
+						if rs.Versions != common.Versions {
 							log.Printf("当前版本不是最新版本,请到官网下载最新版本! https://u2ps.com")
 							conn.Close()
 							os.Exit(1)
 						}
-						Node=rs.Node
-						go common.SendStruct(conn,common.Heartbeat,"Node",Node.IP)
+						Node = rs.Node
+						go common.SendStruct(conn, common.Heartbeat, "Node", Node.IP)
 						if utils.ScanPortOne(Node.Port) {
 							log.Println("端口被占用:" + strconv.Itoa(Node.Port))
 							conn.Close()
@@ -330,7 +330,7 @@ func doTask() {
 					}
 				case string(common.Heartbeat):
 					//接收到心跳正常.
-					go common.SendStruct(conn,common.Heartbeat,"Node",Node.IP)
+					go common.SendStruct(conn, common.Heartbeat, "Node", Node.IP)
 				default:
 					log.Println(msg)
 				}
@@ -402,8 +402,8 @@ func NewTunnelTcp(tunnel common.Tunnel) *TunnelTcp {
 }
 func (t *TunnelHttp) listenHttp() {
 	t.s = http.Server{
-		Addr: "0.0.0.0:" + strconv.Itoa(t.tunnel.ServicePort),
-		Handler: http.HandlerFunc(t.handleNormal),
+		Addr:         "0.0.0.0:" + strconv.Itoa(t.tunnel.ServicePort),
+		Handler:      http.HandlerFunc(t.handleNormal),
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 	err := t.s.ListenAndServe()
@@ -441,7 +441,7 @@ func (t *TunnelHttp) handleNormal(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 	}
-	go TcpBridge(clientConn, dataConn.Stream, t.tunnelId,t.tunnel.NodeID)
+	go TcpBridge(clientConn, dataConn.Stream, t.tunnelId, t.tunnel.NodeID)
 }
 func (t *TunnelTcp) listenTcp() {
 	var err error
@@ -469,57 +469,59 @@ func (t *TunnelTcp) handleNormal(conn net.Conn) {
 	dataConn := getDataStream(cid)
 	//向客户端发送消息建立一个通向代理端口的连接 id为connId
 	common.SendStruct(clientControlConn, common.NewTunnelConn, "", common.NewConn{ConnUid: dataConn.Id, TunnelId: t.tunnelId})
-	go TcpBridge(conn, dataConn.Stream, t.tunnelId,t.tunnel.NodeID)
+	go TcpBridge(conn, dataConn.Stream, t.tunnelId, t.tunnel.NodeID)
 }
+
 //web检查
-func CheckWeb(tunnel common.Tunnel)  {
+func CheckWeb(tunnel common.Tunnel) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Panic info is: ", err)
 		}
 	}()
 	cid := tunnel.ClientID
-	for{
-		 _,ok:=TunnelMap[tunnel.ID];if !ok{
+	for {
+		_, ok := TunnelMap[tunnel.ID]
+		if !ok {
 			break
 		}
-		tunnel=TunnelMap[tunnel.ID]
+		tunnel = TunnelMap[tunnel.ID]
 		clientControlConn := GetControlClientConn(cid)
 		if clientControlConn != nil {
 			dataConn := getDataStream(cid)
 			//向客户端发送消息建立一个通向代理端口的连接 id为connId
-			common.SendStruct(clientControlConn, common.NewTunnelConn, "", common.NewConn{ConnUid: dataConn.Id, TunnelId:tunnel.ID})
+			common.SendStruct(clientControlConn, common.NewTunnelConn, "", common.NewConn{ConnUid: dataConn.Id, TunnelId: tunnel.ID})
 			dataConn.Stream.Write([]byte("/ \\r\\n"))
-			buf:=make([]byte,1024)
+			buf := make([]byte, 1024)
 			l, err := dataConn.Stream.Read(buf)
-			if err==nil{
+			if err == nil {
 				s := strings.ToUpper(string(buf[0:l]))
 				log.Println(s)
-				if strings.Contains(s,"HTTP")&&strings.Contains(s,"REQUEST"){
-					common.SendStruct(conn,common.TcpWeb,"",tunnel.ID)
+				if strings.Contains(s, "HTTP") && strings.Contains(s, "REQUEST") {
+					common.SendStruct(conn, common.TcpWeb, "", tunnel.ID)
 					ListeningMap[tunnel.ID].(net.Listener).Close()
-					delete(ListeningMap,tunnel.ID)
-					delete(TunnelMap,tunnel.ID)
+					delete(ListeningMap, tunnel.ID)
+					delete(TunnelMap, tunnel.ID)
 				}
 			}
-			if dataConn.Stream!=nil{
+			if dataConn.Stream != nil {
 				dataConn.Stream.Close()
 			}
 		}
-		time.Sleep(time.Second*10)
+		time.Sleep(time.Second * 10)
 	}
 }
-func TcpBridge(connP net.Conn, connC *smux.Stream, tid int64,nid int64) {
-	if connP!=nil&&connC!=nil{
-		go common.CopyBufferUpdateFlow(connP, connC,conn,tid,nid,true)
-		common.CopyBufferUpdateFlow(connC, connP,conn,tid,nid,false)
+func TcpBridge(connP net.Conn, connC *smux.Stream, tid int64, nid int64) {
+	if connP != nil && connC != nil {
+		go common.CopyBufferUpdateFlow(connP, connC, conn, tid, nid, true)
+		common.CopyBufferUpdateFlow(connC, connP, conn, tid, nid, false)
 	}
 }
-func UdpBridge(connP *net.UDPConn, connC *smux.Stream, addr *net.UDPAddr, tid int64,nid int64) {
+func UdpBridge(connP *net.UDPConn, connC *smux.Stream, addr *net.UDPAddr, tid int64, nid int64) {
 	var flow int64
 	defer func() {
 		if flow > 0 {
-			go common.SendStruct(conn, common.UpdateFlow, "", common.FlowType{IsUp: false, TunnelId: tid,NodeId:nid, Flow: flow})
+			go common.SendStruct(conn, common.UpdateFlow, "", common.FlowType{IsUp: false, TunnelId: tid, NodeId: nid, Flow: flow})
 		}
 		if err := recover(); err != nil {
 			log.Println("Panic info is: ", err)
@@ -534,7 +536,7 @@ func UdpBridge(connP *net.UDPConn, connC *smux.Stream, addr *net.UDPAddr, tid in
 				if l > 0 {
 					flow += int64(l)
 					if flow > 1024*1024*10 {
-						go common.SendStruct(conn, common.UpdateFlow, "", common.FlowType{IsUp: false, TunnelId: tid,NodeId:nid, Flow: flow})
+						go common.SendStruct(conn, common.UpdateFlow, "", common.FlowType{IsUp: false, TunnelId: tid, NodeId: nid, Flow: flow})
 						flow = 0
 					}
 				}
@@ -578,7 +580,7 @@ func (t *TunnelUdp) listenUdp() {
 				}
 				flow += int64(l)
 				if flow > 1024*1024*10 {
-					go common.SendStruct(conn, common.UpdateFlow, "", common.FlowType{IsUp: true, TunnelId: t.tunnelId,NodeId:t.tunnel.NodeID, Flow: flow})
+					go common.SendStruct(conn, common.UpdateFlow, "", common.FlowType{IsUp: true, TunnelId: t.tunnelId, NodeId: t.tunnel.NodeID, Flow: flow})
 				}
 			}
 		} else {
@@ -598,5 +600,5 @@ func (t *TunnelUdp) handleNormal(addr *net.UDPAddr, data []byte) {
 	dataConn.Stream.Write(data)
 	//向客户端发送消息建立一个通向代理端口的连接 id为connId
 	common.SendStruct(clientControlConn, common.NewTunnelConn, "", common.NewConn{ConnUid: dataConn.Id, TunnelId: t.tunnelId})
-	go UdpBridge(t.s, dataConn.Stream, addr, t.tunnelId,t.tunnel.NodeID)
+	go UdpBridge(t.s, dataConn.Stream, addr, t.tunnelId, t.tunnel.NodeID)
 }

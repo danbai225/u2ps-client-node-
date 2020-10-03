@@ -39,7 +39,7 @@ func Conn() {
 			log.Printf("开始验证Key")
 			doTask()
 		}
-		time.Sleep(10*time.Second)
+		time.Sleep(10 * time.Second)
 		ri++
 		log.Printf("连接已断开..重试第" + strconv.Itoa(ri) + "次")
 	}
@@ -69,13 +69,13 @@ func doTask() {
 					//客户端连接返回节点和隧道
 					if m.Data != nil && len(NodeMap) == 0 {
 						rs := struct {
-							Tunnels []common.Tunnel `json:"tunnels"`
-							Nodes   []common.Node   `json:"nodes"`
-							Client  common.Client   `json:"client"`
-							Versions string `json:"versions"`
+							Tunnels  []common.Tunnel `json:"tunnels"`
+							Nodes    []common.Node   `json:"nodes"`
+							Client   common.Client   `json:"client"`
+							Versions string          `json:"versions"`
 						}{}
 						common.ToStruct(&rs, m.Data)
-						if rs.Versions!=common.Versions {
+						if rs.Versions != common.Versions {
 							log.Printf("当前版本不是最新版本,请到官网下载最新版本! https://u2ps.com")
 							sConn.Close()
 							os.Exit(1)
@@ -88,14 +88,14 @@ func doTask() {
 								go Socks5(t)
 							}
 						}
-						go common.SendStruct(sConn,common.Heartbeat,"Client",Client.ID)
+						go common.SendStruct(sConn, common.Heartbeat, "Client", Client.ID)
 					}
 				case string(common.UpdateTunnel):
 					var tunnel common.Tunnel
 					common.ToStruct(&tunnel, m.Data)
 					TunnelMap[tunnel.ID] = tunnel
 					if tunnel.Type == 4 {
-						if Socks5Map[tunnel.ID]!=nil{
+						if Socks5Map[tunnel.ID] != nil {
 							Socks5Map[tunnel.ID].Shutdown()
 						}
 						go Socks5(tunnel)
@@ -104,39 +104,39 @@ func doTask() {
 					var tunnelId int64
 					common.ToStruct(&tunnelId, m.Data)
 					nodeId := TunnelMap[tunnelId].NodeID
-					if TunnelMap[tunnelId].Type==4{
-						if Socks5Map[tunnelId]!=nil{
+					if TunnelMap[tunnelId].Type == 4 {
+						if Socks5Map[tunnelId] != nil {
 							Socks5Map[tunnelId].Shutdown()
 						}
-						delete(Socks5Map,tunnelId)
+						delete(Socks5Map, tunnelId)
 					}
-					delete(TunnelMap,tunnelId)
-					var flag =true
-					for _,t := range TunnelMap {
-						if t.NodeID==nodeId{
-							flag=false
+					delete(TunnelMap, tunnelId)
+					var flag = true
+					for _, t := range TunnelMap {
+						if t.NodeID == nodeId {
+							flag = false
 						}
 					}
 					if flag {
-						if NodeDataSessionMap[nodeId]!=nil{
+						if NodeDataSessionMap[nodeId] != nil {
 							NodeDataSessionMap[nodeId].Close()
-							delete(NodeDataSessionMap,nodeId)
+							delete(NodeDataSessionMap, nodeId)
 						}
-						if NodeControlConnMap[nodeId]!=nil{
+						if NodeControlConnMap[nodeId] != nil {
 							NodeControlConnMap[nodeId].Close()
-							delete(NodeControlConnMap,nodeId)
+							delete(NodeControlConnMap, nodeId)
 						}
 					}
 				case string(common.UpdateNode):
 					var node common.Node
 					common.ToStruct(&node, m.Data)
-					delete(NodeMap,node.ID)
+					delete(NodeMap, node.ID)
 					nodes := make([]common.Node, 1)
-					nodes[0]=node
+					nodes[0] = node
 					go addNodeConn(nodes)
 				case string(common.Heartbeat):
 					//接收到心跳正常.
-					go common.SendStruct(sConn,common.Heartbeat,"Client",Client.ID)
+					go common.SendStruct(sConn, common.Heartbeat, "Client", Client.ID)
 
 				default:
 					log.Println(msg)
@@ -184,12 +184,12 @@ func addNodeConn(ns []common.Node) {
 
 func ControlNodeTask(conn net.Conn, id int64) {
 	common.SendStruct(conn, common.ClientConnNodeControl, "", Client.ID)
-	go common.SendStructType(conn,common.Heartbeat)
+	go common.SendStructType(conn, common.Heartbeat)
 	var ControlRi = 0
 	for {
 		msg, err := bufio.NewReader(conn).ReadString('\n')
 		if err != nil {
-			conn=nil
+			conn = nil
 			log.Println("控制连接断开,准备重连:", id)
 			for ControlRi < common.MaxRi {
 				if _, ok := NodeMap[id]; ok {
@@ -205,7 +205,7 @@ func ControlNodeTask(conn net.Conn, id int64) {
 					time.Sleep(time.Duration(ControlRi)*2*time.Second + 1)
 					ControlRi++
 					log.Printf("节点连接已断开..重试第" + strconv.Itoa(ControlRi) + "次")
-				}else {
+				} else {
 					return
 				}
 			}
@@ -226,20 +226,20 @@ func ControlNodeTask(conn net.Conn, id int64) {
 					tunnel := TunnelMap[nc.TunnelId]
 					tConn, err := NewTunnelConn(tunnel)
 					nConn := GetStream(nc.ConnUid, tunnel.NodeID)
-					if err == nil&&nConn!=nil{
+					if err == nil && nConn != nil {
 						if tunnel.Type == 2 {
-							go UdpBridge(tConn, nConn,tunnel.ID)
+							go UdpBridge(tConn, nConn, tunnel.ID)
 						} else {
-							go TcpBridge(tConn, nConn,tunnel.ID)
+							go TcpBridge(tConn, nConn, tunnel.ID)
 						}
 					}
 				case string(common.Heartbeat):
 					go func() {
-						time.Sleep(time.Second*30)
-						if(conn==nil){
-							time.Sleep(time.Second*100)
+						time.Sleep(time.Second * 30)
+						if conn == nil {
+							time.Sleep(time.Second * 100)
 						}
-						go common.SendStructType(conn,common.Heartbeat)
+						go common.SendStructType(conn, common.Heartbeat)
 					}()
 				default:
 					log.Println(msg)
@@ -251,38 +251,38 @@ func ControlNodeTask(conn net.Conn, id int64) {
 		}
 	}
 }
-func TcpBridge(tConn net.Conn, nConn *smux.Stream,tid int64) {
+func TcpBridge(tConn net.Conn, nConn *smux.Stream, tid int64) {
 	if tConn != nil && nConn != nil {
 		go func() {
 			l := common.CopyBuffer(nConn, tConn)
-			if l>0{
-				common.SendStruct(sConn,common.UpdateFlow,"",common.FlowType{IsUp: true,TunnelId: tid,NodeId: -1,Flow: l})
+			if l > 0 {
+				common.SendStruct(sConn, common.UpdateFlow, "", common.FlowType{IsUp: true, TunnelId: tid, NodeId: -1, Flow: l})
 			}
 		}()
 		l := common.CopyBuffer(tConn, nConn)
-		if l>0{
-			common.SendStruct(sConn,common.UpdateFlow,"",common.FlowType{IsUp: false,TunnelId: tid,NodeId: -1,Flow: l})
+		if l > 0 {
+			common.SendStruct(sConn, common.UpdateFlow, "", common.FlowType{IsUp: false, TunnelId: tid, NodeId: -1, Flow: l})
 		}
 	}
 }
-func UdpBridge(tConn net.Conn, nConn *smux.Stream,tid int64) {
+func UdpBridge(tConn net.Conn, nConn *smux.Stream, tid int64) {
 	defer tConn.Close()
 	defer nConn.Close()
 	var flow int64
-	defer common.SendStruct(sConn,common.UpdateFlow,"",common.FlowType{IsUp: true,TunnelId: tid,NodeId: -1,Flow: flow})
+	defer common.SendStruct(sConn, common.UpdateFlow, "", common.FlowType{IsUp: true, TunnelId: tid, NodeId: -1, Flow: flow})
 	if tConn != nil && nConn != nil {
 		go func() {
 			defer tConn.Close()
 			defer nConn.Close()
 			var flow int64
-			defer common.SendStruct(sConn,common.UpdateFlow,"",common.FlowType{IsUp: false,TunnelId: tid,NodeId: -1,Flow: flow})
+			defer common.SendStruct(sConn, common.UpdateFlow, "", common.FlowType{IsUp: false, TunnelId: tid, NodeId: -1, Flow: flow})
 			buf := make([]byte, 65507)
 			for {
 				nConn.SetDeadline(time.Now().Add(time.Second * 30))
 				n, err := nConn.Read(buf)
 				if err == nil {
 					l, _ := tConn.Write(buf[0:n])
-					flow+=int64(l)
+					flow += int64(l)
 				} else {
 					break
 				}
@@ -294,7 +294,7 @@ func UdpBridge(tConn net.Conn, nConn *smux.Stream,tid int64) {
 				n, err := tConn.Read(buf)
 				if err == nil {
 					l, _ := nConn.Write(buf[0:n])
-					flow+=int64(l)
+					flow += int64(l)
 				} else {
 					break
 				}
